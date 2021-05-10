@@ -1,8 +1,8 @@
 #!/usr/bin/python3.8
 # -*- coding: utf-8 -*-
 # @Time    : 2021-04-27 16:45
-# @Author  : ethan_hao
-# @Email   : jiangwei1.hao@tcl.com
+# @Author  : ethan_hao  ruizhang
+# @Email   : jiangwei1.hao@tcl.com  rui27.zhang@tcl.com
 # @File    : baidu_ocr.py
 # @Software: PyCharm
 # encoding:utf-8
@@ -47,7 +47,7 @@ def OpticalCharacterRecognition(img_path, precision=3):
     params = {"image": img,
             'paragraph':'true', 
             'detect_language':'true',
-            'recognize_granularity':'small'}
+            'recognize_granularity':'big'}
     # access_token = '[调用鉴权接口获取的token]'
     access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
 
@@ -69,13 +69,14 @@ def draw(response, original_img):
         ymin_words = words['location']['top']
         xmax_words = xmin_words + words['location']['width']
         ymax_words = ymin_words + words['location']['height']
-        cv2.rectangle(original_img, (xmin_words, ymin_words), (xmax_words, ymax_words), (0, 255, 0), 1)
-        for char in words['chars']:
-            xmin_char = char['location']['left']
-            ymin_char = char['location']['top']
-            xmax_char = xmin_words + char['location']['width']
-            ymax_char = ymin_words + char['location']['height']
-            cv2.rectangle(original_img, (xmin_char, ymin_char), (xmax_char, ymax_char), (0, 255, 255), 1)
+        cv2.rectangle(original_img, (xmin_words, ymin_words), (xmax_words, ymax_words), (0, 255, 0), 2)
+        if 'chars' in words:
+            for char in words['chars']:
+                xmin_char = char['location']['left']
+                ymin_char = char['location']['top']
+                xmax_char = xmin_char + char['location']['width']
+                ymax_char = ymin_char + char['location']['height']
+                cv2.rectangle(original_img, (xmin_char, ymin_char), (xmax_char, ymax_char), (255, 0, 255), 1)
 
 
 
@@ -84,7 +85,7 @@ if __name__ == '__main__':
     original_img = cv2.imread(img_path)
     cv2.imshow('OCR',original_img)
 
-    response = OpticalCharacterRecognition(img_path, 3)
+    response = OpticalCharacterRecognition(img_path, 2)
     draw(response, original_img)
     cv2.imshow('OCR',original_img)
     cv2.waitKey(0)

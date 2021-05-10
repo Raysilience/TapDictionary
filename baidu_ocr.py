@@ -10,8 +10,8 @@
 import requests
 import base64
 import json
-import cv2
 
+from postprocess import *
 # client_id 为官网获取的AK， client_secret 为官网获取的SK
 
 # host = 'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=j5YpGX4hSkwRRoYbliGvBfAR&client_secret=8AfRUtEB9ftIUY9VrDkzzMuSUXiyeaNv'
@@ -47,7 +47,7 @@ def OpticalCharacterRecognition(img_path, precision=3):
     params = {"image": img,
             'paragraph':'true', 
             'detect_language':'true',
-            'recognize_granularity':'big'}
+            'recognize_granularity':'small'}
     # access_token = '[调用鉴权接口获取的token]'
     access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
 
@@ -58,34 +58,20 @@ def OpticalCharacterRecognition(img_path, precision=3):
 
     return response
 
-def draw(response, original_img):
-    if response:
-        print(response.json())
-    dict = json.loads(response.text)
-    total = int(dict['words_result_num'])
-    for words in dict['words_result']:
-        print(words['words'])
-        xmin_words = words['location']['left']
-        ymin_words = words['location']['top']
-        xmax_words = xmin_words + words['location']['width']
-        ymax_words = ymin_words + words['location']['height']
-        cv2.rectangle(original_img, (xmin_words, ymin_words), (xmax_words, ymax_words), (0, 255, 0), 2)
-        if 'chars' in words:
-            for char in words['chars']:
-                xmin_char = char['location']['left']
-                ymin_char = char['location']['top']
-                xmax_char = xmin_char + char['location']['width']
-                ymax_char = ymin_char + char['location']['height']
-                cv2.rectangle(original_img, (xmin_char, ymin_char), (xmax_char, ymax_char), (255, 0, 255), 1)
-
-
 
 if __name__ == '__main__':
     img_path = './1.jpg'
     original_img = cv2.imread(img_path)
     cv2.imshow('OCR',original_img)
 
-    response = OpticalCharacterRecognition(img_path, 2)
+    response = OpticalCharacterRecognition(img_path, 3)
+
+    x = 221
+    y = 129
+    response = json.loads(response.text)
+    line = get_nearest_line(response, x, y)
+
+    print(line['words'])
     draw(response, original_img)
     cv2.imshow('OCR',original_img)
     cv2.waitKey(0)

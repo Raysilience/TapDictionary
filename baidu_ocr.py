@@ -19,24 +19,24 @@ import cv2
 # if response:
 #     print(response.json())
 
+def OpticalCharacterRecognition(img_path, precision=3):
 
-
-def OpticalCharacterRecognition(img_path,draw_img,high_precision=1):
-
-    
-    if high_precision==1:
+    if precision==1:
         '''
         通用文字识别（高精度版）
         '''
         request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
 
-    elif high_precision==2:
+    elif precision==2:
         '''
         通用文字识别(高精度含位置版)
         '''
         request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate"
 
-    elif high_precision==3:
+    elif precision==3:
+        '''
+        通用文字识别(通用含位置版)
+        '''
         request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/general"
 
     # 二进制方式打开图片文件
@@ -56,25 +56,31 @@ def OpticalCharacterRecognition(img_path,draw_img,high_precision=1):
     # vertexes_location 是否返回文字外接多边形顶点位置，不支持单字位置。
     response = requests.post(request_url, data=params, headers=headers)
 
+    return response
+
+def draw(response, original_img):
     if response:
         print(response.json())
-        dict = json.loads(response.text)
-        total = int(dict['words_result_num'])
-        for i in range(total):
-            print(dict['words_result'][i]['words'])
-            if dict['words_result'][i]['location']:
-                # print(dict['words_result'][i]['location'])
-                xmin = int(dict['words_result'][i]['location']['left'])
-                ymin = int(dict['words_result'][i]['location']['top'])
-                width = int(dict['words_result'][i]['location']['width'])
-                height = int(dict['words_result'][i]['location']['height'])
-                cv2.rectangle(draw_img, (xmin, ymin), (xmin + width, ymin + height), (0, 255, 0), 1)
+    dict = json.loads(response.text)
+    total = int(dict['words_result_num'])
+    for i in range(total):
+        print(dict['words_result'][i]['words'])
+        if dict['words_result'][i]['location']:
+            # print(dict['words_result'][i]['location'])
+            xmin = int(dict['words_result'][i]['location']['left'])
+            ymin = int(dict['words_result'][i]['location']['top'])
+            width = int(dict['words_result'][i]['location']['width'])
+            height = int(dict['words_result'][i]['location']['height'])
+            cv2.rectangle(original_img, (xmin, ymin), (xmin + width, ymin + height), (0, 255, 0), 1)
 
 
 if __name__ == '__main__':
     img_path = './1.jpg'
-    draw_img = cv2.imread(img_path)
-    OpticalCharacterRecognition(img_path,draw_img,high_precision=3)
-    cv2.imshow('OCR',draw_img)
+    original_img = cv2.imread(img_path)
+    cv2.imshow('OCR',original_img)
+
+    response = OpticalCharacterRecognition(img_path, 3)
+    draw(response, original_img)
+    cv2.imshow('OCR',original_img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

@@ -63,15 +63,20 @@ def draw(response, original_img):
         print(response.json())
     dict = json.loads(response.text)
     total = int(dict['words_result_num'])
-    for i in range(total):
-        print(dict['words_result'][i]['words'])
-        if dict['words_result'][i]['location']:
-            # print(dict['words_result'][i]['location'])
-            xmin = int(dict['words_result'][i]['location']['left'])
-            ymin = int(dict['words_result'][i]['location']['top'])
-            width = int(dict['words_result'][i]['location']['width'])
-            height = int(dict['words_result'][i]['location']['height'])
-            cv2.rectangle(original_img, (xmin, ymin), (xmin + width, ymin + height), (0, 255, 0), 1)
+    for words in dict['words_result']:
+        print(words['words'])
+        xmin_words = words['location']['left']
+        ymin_words = words['location']['top']
+        xmax_words = xmin_words + words['location']['width']
+        ymax_words = ymin_words + words['location']['height']
+        cv2.rectangle(original_img, (xmin_words, ymin_words), (xmax_words, ymax_words), (0, 255, 0), 1)
+        for char in words['chars']:
+            xmin_char = char['location']['left']
+            ymin_char = char['location']['top']
+            xmax_char = xmin_words + char['location']['width']
+            ymax_char = ymin_words + char['location']['height']
+            cv2.rectangle(original_img, (xmin_char, ymin_char), (xmax_char, ymax_char), (0, 255, 255), 1)
+
 
 
 if __name__ == '__main__':

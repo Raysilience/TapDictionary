@@ -11,11 +11,11 @@ import logging
 
 from magic_finger import MagicFinger
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 img_path = './1.jpg'
 
 mf = MagicFinger(precision=2)
 mf.set_image(img_path)
-result = mf.translate()
-print(result)
+# result = mf.translate()
+# print(result)
 mf.draw()

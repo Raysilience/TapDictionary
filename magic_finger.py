@@ -33,6 +33,8 @@ class MagicFinger:
         self.response = None
         # 查询图片路径
         self.image_path = ''
+        # 默认查询语言
+        self.lan = 'cn'
 
         # 汉语词语字典路径
         self.PATH_CN_PHRASE = ''
@@ -48,12 +50,25 @@ class MagicFinger:
     def _load_local_dict(self):
         # ToDo: 
         self.dictionary_cn = {"实现":"shixian"}
-        self.dictionary_en_to_cn = None
+        self.dictionary_en_to_cn = {"may": "大概", "is": "是"}
         return
 
     def _load_model(self):
         # ToDo: 
         return
+
+    def translate(self):
+        res = self._locate_words()
+        logging.info(res)
+        if not res:
+            logging.error("no word detected")
+            return ''
+        if (self.lan == 'cn'):
+            return self._match_dict_cn(res)
+        elif (self.lan == 'en'):
+            return self._match_dict_en(res)
+        else:
+            return 'Unrecognizable language'
 
     def set_image(self, path):
         """ set data then send it to ocr and fingertip regressor"""
@@ -83,9 +98,40 @@ class MagicFinger:
         Returns:
             a dictionary whose key is length of potential words and value is list of words of that length
         """
-        ret = {}
         line = self._get_nearest_line()
+        xmin = line['chars'][0]['location']['left']
+        xmax = line['chars'][-1]['location']['left'] + line['chars'][-1]['location']['width']
+        if self.x < xmin or self.x > xmax:
+            logging.error('out of bounds. retap the word')
+            return ''
 
+        # distinguish language of the interest word
+        anchor_char = ''
+        dist = float('inf')
+        for char in line['chars']:
+            xmin_char = char['location']['left']
+            xmax_char = xmin_char + char['location']['width']
+            xmid_char = (xmin_char + xmax_char) / 2
+
+            cur_dist = abs(self.x - xmid_char)
+            if cur_dist < dist:
+                dist = cur_dist
+                anchor_char = char['char']
+            else:
+                break
+        if anchor_char >= u'\u4e00' and anchor_char<=u'\u9fa5':
+            self.lan = 'cn'
+        else:
+            self.lan = 'en'
+        
+        if self.lan == 'cn':
+            return self._locate_words_cn(line)
+        elif self.lan == 'en':
+            return self._locate_words_en(line)
+        else:
+            raise ValueError("not support language")
+
+    def _locate_words_cn(self, line):
         # Generate second time searching bbox according to bbox height
         xmin_line = line['location']['left']
         ymin_line = line['location']['top']
@@ -97,7 +143,6 @@ class MagicFinger:
         left = left if left > xmin_line else xmin_line
         right = right if right < xmax_line else xmax_line
 
-        # todo: distinguish ch and en
         # get tentative characters 
         chars = []
         anchor_char = ''
@@ -119,10 +164,7 @@ class MagicFinger:
             else:
                 continue
 
-        # print("tentative characters: ", chars)
-        # print("anchor_char: ", anchor_char)
-        # print("idx: ", idx)
-
+        ret = {}
         # combination of phrases
         if chars:
             for i in range(idx + 1):
@@ -134,6 +176,30 @@ class MagicFinger:
                         ret[len(phrase)].append(phrase)
 
         return ret
+
+    def _locate_words_en(self, line):
+        words = line['words'].split()
+        idx = 0
+        for word in words:
+            xmin = line['chars'][idx]['location']['left']
+            xmax = line['chars'][idx+len(word)-1]['location']['left'] + line['chars'][idx+len(word)-1]['location']['width']
+            if xmin <= self.x <= xmax:
+                i = 0
+                j = len(word) - 1
+                for p in range(len(word)):
+                    if (word[p] >= u'\u0041' and word[p]<=u'\u005a') or (word[p] >= u'\u0061' and word[p]<=u'\u007a'):
+                        break
+                    else:
+                        i += 1
+                for q in range(len(word)-1, i, -1):
+                    if (word[q] >= u'\u0041' and word[q]<=u'\u005a') or (word[q] >= u'\u0061' and word[q]<=u'\u007a'):
+                        break
+                    else:
+                        j -= 1
+                return word[i: j+1]
+            idx += len(word)
+
+        return ''
 
     def _get_nearest_line(self):
         if not self.response:
@@ -196,19 +262,7 @@ class MagicFinger:
         else:
             return "Not Found"
 
-    def translate(self):
-        comb = self._locate_words()
-        logging.debug(comb)
-        if not comb:
-            logging.error("no word detected")
-            return ''
-        lan = 'cn'
-        if (lan == 'cn'):
-            return self._match_dict_cn(comb)
-        elif (lan == 'en'):
-            return self._match_dict_en_to_cn(comb)
-        else:
-            return 'Unrecognizable language'
+
 
     def _init_OCR(self):
         if self.PRECISION_STATUS==1:
@@ -225,7 +279,7 @@ class MagicFinger:
 
         self.params = {
                 'paragraph':'true', 
-                'detect_language':'true',
+                'language_type': "CHN_ENG",
                 'recognize_granularity':'small'}
         # access_token = '[调用鉴权接口获取的token]'
         access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
@@ -241,7 +295,7 @@ class MagicFinger:
         f = open(self.image_path, 'rb')
         img = base64.b64encode(f.read())
         self.params['image'] = img
-        
+
         res = requests.post(self.request_url, data=self.params, headers=self.headers)
         self.response = json.loads(res.text)
         logging.info(self.response)

@@ -1,7 +1,7 @@
 #!/usr/bin/python3.8
 # -*- coding: utf-8 -*-
 # @Time    : 2021-05-10 19:33
-# @Author  : rui
+# @Author  : rui ethan_hao
 # @Email   : rui27.zhang@tcl.com
 # @File    : postprocess.py
 
@@ -43,6 +43,7 @@ class MagicFinger:
 
         self._load_local_dict()
         self._load_model()
+        self._init_OCR()
 
     def _load_local_dict(self):
         # ToDo: 
@@ -198,6 +199,9 @@ class MagicFinger:
     def translate(self):
         comb = self._locate_words()
         logging.debug(comb)
+        if not comb:
+            logging.error("no word detected")
+            return ''
         lan = 'cn'
         if (lan == 'cn'):
             return self._match_dict_cn(comb)
@@ -206,11 +210,7 @@ class MagicFinger:
         else:
             return 'Unrecognizable language'
 
-    def _OCR(self):
-        if not self.image_path:
-            logging.error("no image to parse")
-            return
-
+    def _init_OCR(self):
         if self.PRECISION_STATUS==1:
             '''通用文字识别（高精度版）'''
             request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
@@ -223,21 +223,26 @@ class MagicFinger:
             '''通用文字识别(通用含位置版)'''
             request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/general"
 
-        # 二进制方式打开图片文件
-        f = open(self.image_path, 'rb')
-        img = base64.b64encode(f.read())
-
-        params = {"image": img,
+        self.params = {
                 'paragraph':'true', 
                 'detect_language':'true',
                 'recognize_granularity':'small'}
         # access_token = '[调用鉴权接口获取的token]'
         access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
 
-        request_url = request_url + "?access_token=" + access_token
-        headers = {'content-type': 'application/x-www-form-urlencoded'}
-        # vertexes_location 是否返回文字外接多边形顶点位置，不支持单字位置。
-        res = requests.post(request_url, data=params, headers=headers)
+        self.request_url = request_url + "?access_token=" + access_token
+        self.headers = {'content-type': 'application/x-www-form-urlencoded'}
+
+    def _OCR(self):
+        if not self.image_path:
+            logging.error("no image to parse")
+            return
+
+        f = open(self.image_path, 'rb')
+        img = base64.b64encode(f.read())
+        self.params['image'] = img
+        
+        res = requests.post(self.request_url, data=self.params, headers=self.headers)
         self.response = json.loads(res.text)
         logging.info(self.response)
 
@@ -247,7 +252,6 @@ class MagicFinger:
         self.original_img = cv2.imread(self.image_path)
         cv2.namedWindow('Magic Finger')
         for words in self.response['words_result']:
-            # print(words['words'])
             xmin_words = words['location']['left']
             ymin_words = words['location']['top']
             xmax_words = xmin_words + words['location']['width']

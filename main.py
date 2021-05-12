@@ -9,10 +9,12 @@ import logging
 from magic_finger import MagicFinger
 
 logging.basicConfig(level=logging.DEBUG)
-img_path = './2.jpg'
+img_path = './1.jpg'
 
 mf = MagicFinger(precision=3, max_len_cn=1)
 mf.set_image(img_path)
+
+mf.draw(mode=mf.DRAWLINE|mf.INTERACTIVE)
+
 # result = mf.translate()
 # print(result)
-mf.draw(mode=mf.DRAWLINE|mf.INTERACTIVE)

@@ -1,9 +1,9 @@
 #!/usr/bin/python3.8
 # -*- coding: utf-8 -*-
 # @Time    : 2021-05-10 19:33
-# @Author  : rui ethan_hao
-# @Email   : rui27.zhang@tcl.com
-# @File    : postprocess.py
+# @Author  : Rui ethan_hao
+# @Email   : rui27.zhang@tcl.com  jiangwei1.hao@tcl.com
+# @File    : magic_finger.py
 
 import cv2
 import requests
@@ -22,13 +22,13 @@ class BBox:
 
 
 class MagicFinger:
-    def __init__(self, precision=3, max_len=4, scale=1.2):
+    def __init__(self, **kwargs):
         # 最长识别汉字词语长度
-        self.MAX_LEN_CHAR_CN = max_len
+        self.MAX_LEN_CHAR_CN = 4 if 'max_len_cn' not in kwargs else kwargs['max_len_cn']
         # 搜索汉字扩框系数
-        self.FACTOR_SCALE = scale
+        self.FACTOR_SCALE = 1.2 if 'scale' not in kwargs else kwargs['scale']
         # OCR精度设置
-        self.PRECISION_STATUS = precision
+        self.PRECISION_STATUS = 3 if 'precision' not in kwargs else kwargs['precision']
         # OCR响应内容
         self.response = None
         # 查询图片路径
@@ -37,11 +37,16 @@ class MagicFinger:
         self.lan = 'cn'
 
         # 汉语词语字典路径
-        self.PATH_CN_PHRASE = ''
+        self.PATH_CN_PHRASE = './data/word.json'
         # 英-汉字典路径
         self.PATH_EN_TO_CN = ''
         # 指尖识别模型路径
         self.PATH_FINGERTIP_MODEL = ''
+
+        # 显示模式
+        self.DRAWLINE = 1
+        self.DRAWBOX = 2
+        self.INTERACTIVE = 4
 
         self._load_local_dict()
         self._load_model()
@@ -49,7 +54,9 @@ class MagicFinger:
 
     def _load_local_dict(self):
         # ToDo: 
-        self.dictionary_cn = {"实现":"shixian"}
+        with open(self.PATH_CN_PHRASE,'r',encoding='utf8')as fp:
+            self.dictionary_cn = json.load(fp)
+
         self.dictionary_en_to_cn = {"may": "大概", "is": "是"}
         return
 
@@ -59,7 +66,7 @@ class MagicFinger:
 
     def translate(self):
         res = self._locate_words()
-        logging.info(res)
+        logging.debug(res)
         if not res:
             logging.error("no word detected")
             return ''
@@ -99,6 +106,9 @@ class MagicFinger:
             a dictionary whose key is length of potential words and value is list of words of that length
         """
         line = self._get_nearest_line()
+        if not line:
+            logging.error('out of bounds. retap the word')
+            return ''
         xmin = line['chars'][0]['location']['left']
         xmax = line['chars'][-1]['location']['left'] + line['chars'][-1]['location']['width']
         if self.x < xmin or self.x > xmax:
@@ -250,10 +260,15 @@ class MagicFinger:
         keys = list(comb.keys())
         keys.sort(reverse = True)
         max_len = min(self.MAX_LEN_CHAR_CN, keys[0])
+        ret = ''
         for i in range(max_len, 0, -1):
             for phrase in comb[i]:
-                if phrase in self.dictionary_cn:
-                    return self.dictionary_cn[phrase]
+                for ciyu in self.dictionary_cn:
+                    if ciyu['word'] == phrase:
+                        ret = '拼音：{}\n\n繁体字：{}\n\n释义：{}\n'.format(ciyu['pinyin'], ciyu['oldword'], ciyu['explanation'])
+                        return ret
+                # if phrase in self.dictionary_cn:
+                #     return self.dictionary_cn[phrase]
         return "查无此词"
 
     def _match_dict_en(self, word):
@@ -298,43 +313,44 @@ class MagicFinger:
 
         res = requests.post(self.request_url, data=self.params, headers=self.headers)
         self.response = json.loads(res.text)
-        logging.info(self.response)
+        logging.debug(self.response)
 
         return
         
-    def draw(self):
+    def draw(self, mode):
         self.original_img = cv2.imread(self.image_path)
         cv2.namedWindow('Magic Finger')
-        for words in self.response['words_result']:
-            xmin_words = words['location']['left']
-            ymin_words = words['location']['top']
-            xmax_words = xmin_words + words['location']['width']
-            ymax_words = ymin_words + words['location']['height']
-            cv2.rectangle(self.original_img, (xmin_words, ymin_words), (xmax_words, ymax_words), (0, 255, 0), 2)
-            if 'chars' in words:
-                for char in words['chars']:
-                    xmin_char = char['location']['left']
-                    ymin_char = char['location']['top']
-                    xmax_char = xmin_char + char['location']['width']
-                    ymax_char = ymin_char + char['location']['height']
-                    cv2.rectangle(self.original_img, (xmin_char, ymin_char), (xmax_char, ymax_char), (255, 0, 255), 1)
-
-        cv2.circle(self.original_img, (self.x, self.y), 2, (255, 0, 0), 2)
-        cv2.setMouseCallback('Magic Finger',  self._OnMouseAction)
-
-        while 1:
+        if mode & 1:
+            for words in self.response['words_result']:
+                xmin_words = words['location']['left']
+                ymin_words = words['location']['top']
+                xmax_words = xmin_words + words['location']['width']
+                ymax_words = ymin_words + words['location']['height']
+                cv2.rectangle(self.original_img, (xmin_words, ymin_words), (xmax_words, ymax_words), (0, 255, 0), 2)
+                if (mode & 2) and ('chars' in words):
+                    for char in words['chars']:
+                        xmin_char = char['location']['left']
+                        ymin_char = char['location']['top']
+                        xmax_char = xmin_char + char['location']['width']
+                        ymax_char = ymin_char + char['location']['height']
+                        cv2.rectangle(self.original_img, (xmin_char, ymin_char), (xmax_char, ymax_char), (255, 0, 255), 1)
             cv2.imshow('Magic Finger', self.original_img)
-            if cv2.waitKey(100) == 27:
-                break
+            
+        if mode & 4:
+            cv2.setMouseCallback('Magic Finger',  self._OnMouseAction)
+            while 1:
+                cv2.imshow('Magic Finger', self.original_img)
+                if cv2.waitKey(100) == 27:
+                    break
         cv2.destroyAllWindows()
 
     def _OnMouseAction(self,event,x,y,flags,param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            print(x,y)
+            logging.debug("x: {}\ty: {}".format(x, y))
             cv2.circle(self.original_img, (x, y), 2, (255, 0, 0), 2)
             self.x = x
             self.y = y
-            print(self.translate())
+            logging.info(self.translate())
 
 if __name__ == "__main__":
     mf = MagicFinger()

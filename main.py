@@ -8,8 +8,10 @@
 import logging
 from magic_finger import MagicFinger
 
-logging.basicConfig(level=logging.DEBUG)
-img_path = './1.jpg'
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+
+img_path = './2.jpg'
 
 mf = MagicFinger(precision=3, max_len_cn=1)
 mf.set_image(img_path)

@@ -5,16 +5,7 @@ import json
 import logging
 import webbrowser
 from mdict_query import IndexBuilder
-
-class BBox:
-    def __init__(self, xmin=0, ymin=0, xmax=0, ymax=0):
-        self.xmin = xmin
-        self.ymin = ymin
-        self.xmax = xmax
-        self.ymax = ymax
-    def to_string(self):
-        return "BBox:" + "\n\txmin: " + str(self.xmin) + "\t\tymin: " + str(self.ymin) + "\t\txmax: " + str(self.xmax) + "\t\tymax: " + str(self.ymax) + "\n"
-
+from magic_utils import *
 
 class MagicFinger:
     def __init__(self, **kwargs):
@@ -51,6 +42,10 @@ class MagicFinger:
         self._load_model()
         self._init_OCR()
 
+        self.x = 0
+        self.y = 0
+        self.points = []
+
     def _load_local_dict(self):
         self.dictionary_cn_XinHua = IndexBuilder(self.PATH_CN_XINHUA)
         self.dictionary_cn_phrase = IndexBuilder(self.PATH_CN_PHRASE)
@@ -60,6 +55,29 @@ class MagicFinger:
         # ToDo: 
         return
 
+    def _init_OCR(self):
+        if self.PRECISION_STATUS==1:
+            '''通用文字识别（高精度版）'''
+            request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
+
+        elif self.PRECISION_STATUS==2:
+            '''通用文字识别(高精度含位置版)'''
+            request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate"
+
+        elif self.PRECISION_STATUS==3:
+            '''通用文字识别(通用含位置版)'''
+            request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/general"
+
+        self.params = {
+                'paragraph':'true', 
+                'language_type': "CHN_ENG",
+                'recognize_granularity':'small'}
+        # access_token = '[调用鉴权接口获取的token]'
+        access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
+
+        self.request_url = request_url + "?access_token=" + access_token
+        self.headers = {'content-type': 'application/x-www-form-urlencoded'}
+    
     def translate(self):
         words = self._locate_words()
         logging.debug(words)
@@ -87,8 +105,7 @@ class MagicFinger:
 
         # ToDo: get x, y from model
 
-        self.x = 241
-        self.y = 129
+
 
     def _locate_words(self):
         """
@@ -132,14 +149,22 @@ class MagicFinger:
             self.lan = 'en'
         
         if self.lan == 'cn':
-            return self._locate_words_cn(line)
+            # 非指定词组
+            if not self.points:
+                return self._locate_words_cn(line)
+            # 指定词组
+            else:
+                return self._locate_phrase_cn(line)
         elif self.lan == 'en':
             return self._locate_words_en(line)
         else:
             raise ValueError("not support language")
 
     def _locate_words_cn(self, line):
-        # Generate second time searching bbox according to bbox height
+        """ 
+        find combination of words around the fingertip
+        """
+
         xmin_line = line['location']['left']
         ymin_line = line['location']['top']
         xmax_line = xmin_line + line['location']['width']
@@ -248,6 +273,33 @@ class MagicFinger:
                     ret += self.response['words_result'][i]['words'] + '\n'
         return ret
 
+    def _locate_phrase_cn(self, line):
+        start, end = recognize_line(self.points)
+        xmin = start[0]
+        xmax = end[0]
+        ret = ''
+        for char in line['chars']:
+            xmin_char = char['location']['left']
+            xmax_char = char['location']['width'] + xmin_char
+            xmid_char = xmin_char/2 + xmax_char/2
+            if xmin <= xmid_char <= xmax:
+                ret += char['char']
+        return {len(ret): [ret]}
+
+
+
+    def get_slide_paragraph(self):
+        bbox = recognize_bbox(self.points)
+        ret = ''
+        for words in self.response['words_result']:
+            ymin_words = words['location']['top']
+            ymax_words = ymin_words + words['location']['height']
+            ymid_words = ymax_words/2 + ymin_words/2
+            if bbox.ymin <= ymid_words <= bbox.ymax:
+                ret += words['words'] + '\n'
+        return ret
+
+
     def _match_dict_cn(self, comb):
         """
         match phrases in Chinese phrase dictionary
@@ -256,10 +308,11 @@ class MagicFinger:
         """
         keys = list(comb.keys())
         keys.sort(reverse = True)
-        max_len = min(self.MAX_LEN_CHAR_CN, keys[0])
         ret = ''
-        for i in range(max_len, 0, -1):
-            for phrase in comb[i]:
+        for key in keys:
+            if key > self.MAX_LEN_CHAR_CN:
+                continue
+            for phrase in comb[key]:
                 ret = self.dictionary_cn_XinHua.mdx_lookup(phrase)
                 if ret:
                     return ret[0]
@@ -271,31 +324,6 @@ class MagicFinger:
             return "Not Found"
         else:
             return res[0]
-
-
-
-    def _init_OCR(self):
-        if self.PRECISION_STATUS==1:
-            '''通用文字识别（高精度版）'''
-            request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
-
-        elif self.PRECISION_STATUS==2:
-            '''通用文字识别(高精度含位置版)'''
-            request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate"
-
-        elif self.PRECISION_STATUS==3:
-            '''通用文字识别(通用含位置版)'''
-            request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/general"
-
-        self.params = {
-                'paragraph':'true', 
-                'language_type': "CHN_ENG",
-                'recognize_granularity':'small'}
-        # access_token = '[调用鉴权接口获取的token]'
-        access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
-
-        self.request_url = request_url + "?access_token=" + access_token
-        self.headers = {'content-type': 'application/x-www-form-urlencoded'}
 
     def _OCR(self):
         if not self.image_path:
@@ -311,7 +339,14 @@ class MagicFinger:
         logging.debug(self.response)
 
         return
-        
+    
+    # ToDo
+    def _rotate(self, points, direction):
+        """
+        rotate fingertip pos according to the words direction
+        """
+        return
+
     def draw(self, mode):
         self.original_img = cv2.imread(self.image_path)
         cv2.namedWindow('Magic Finger')
@@ -352,9 +387,31 @@ class MagicFinger:
             cv2.circle(self.original_img, (x, y), 2, (255, 0, 0), 2)
             self.x = x
             self.y = y
-            res = self.translate()
-            self._display_html(res)
-            logging.info(res)
+
+        elif event == cv2.EVENT_MOUSEMOVE and flags & cv2.EVENT_FLAG_LBUTTON:
+            self.points.append((x, y))
+            logging.debug("x: {}\ty: {}".format(x, y))
+            cv2.circle(self.original_img, (x, y), 2, (255, 0, 0), 2)
+
+        elif event == cv2.EVENT_LBUTTONUP:
+            if not self.points:
+                res = self.translate()
+                self._display_html(res)
+                logging.info(res)
+            else:
+                if is_closed(self.points):
+                    print(self.get_slide_paragraph())
+                else:
+                    res = self.translate()
+                    self._display_html(res)
+                    logging.info(res)
+                
+
+            self.x = 0
+            self.y = 0
+            self.points = []
+            logging.debug("x: {}\ty: {}".format(self.x, self.y))
+
 
 if __name__ == "__main__":
     mf = MagicFinger()

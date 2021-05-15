@@ -1,15 +1,10 @@
-#!/usr/bin/python3.8
-# -*- coding: utf-8 -*-
-# @Time    : 2021-05-10 19:33
-# @Author  : Rui ethan_hao
-# @Email   : rui27.zhang@tcl.com  jiangwei1.hao@tcl.com
-# @File    : magic_finger.py
-
 import cv2
 import requests
 import base64
 import json
 import logging
+import webbrowser
+from mdict_query import IndexBuilder
 
 class BBox:
     def __init__(self, xmin=0, ymin=0, xmax=0, ymax=0):
@@ -36,12 +31,16 @@ class MagicFinger:
         # 默认查询语言
         self.lan = 'cn'
 
-        # 汉语词语字典路径
-        self.PATH_CN_PHRASE = './data/word.json'
+        # 汉语成语词典路径
+        self.PATH_CN_PHRASE = './data/CHENGYUCIDIAN.mdx'
+        # 汉语新华字典路径
+        self.PATH_CN_XINHUA = './data/XINHUAZIDIAN.mdx'
         # 英-汉字典路径
-        self.PATH_EN_TO_CN = ''
+        self.PATH_EN_TO_CN = './data/OALD7.mdx'
         # 指尖识别模型路径
         self.PATH_FINGERTIP_MODEL = ''
+        # html显示路径
+        self.PATH_HTML = 'temp.html'
 
         # 显示模式
         self.DRAWLINE = 1
@@ -53,27 +52,25 @@ class MagicFinger:
         self._init_OCR()
 
     def _load_local_dict(self):
-        # ToDo: 
-        with open(self.PATH_CN_PHRASE,'r',encoding='utf8')as fp:
-            self.dictionary_cn = json.load(fp)
-
-        self.dictionary_en_to_cn = {"may": "大概", "is": "是"}
-        return
+        self.dictionary_cn_XinHua = IndexBuilder(self.PATH_CN_XINHUA)
+        self.dictionary_cn_phrase = IndexBuilder(self.PATH_CN_PHRASE)
+        self.dictionary_en_to_cn = IndexBuilder(self.PATH_EN_TO_CN)
 
     def _load_model(self):
         # ToDo: 
         return
 
     def translate(self):
-        res = self._locate_words()
-        logging.debug(res)
-        if not res:
+        words = self._locate_words()
+        logging.debug(words)
+        if not words:
             logging.error("no word detected")
-            return ''
+            return 'NAN'
+
         if (self.lan == 'cn'):
-            return self._match_dict_cn(res)
+            return self._match_dict_cn(words)
         elif (self.lan == 'en'):
-            return self._match_dict_en(res)
+            return self._match_dict_en(words)
         else:
             return 'Unrecognizable language'
 
@@ -263,19 +260,17 @@ class MagicFinger:
         ret = ''
         for i in range(max_len, 0, -1):
             for phrase in comb[i]:
-                for ciyu in self.dictionary_cn:
-                    if ciyu['word'] == phrase:
-                        ret = '拼音：{}\n\n繁体字：{}\n\n释义：{}\n'.format(ciyu['pinyin'], ciyu['oldword'], ciyu['explanation'])
-                        return ret
-                # if phrase in self.dictionary_cn:
-                #     return self.dictionary_cn[phrase]
-        return "查无此词"
+                ret = self.dictionary_cn_XinHua.mdx_lookup(phrase)
+                if ret:
+                    return ret[0]
+        return "<html><head></head><body><p>{}</p></body></html>".format("查无此词")
 
     def _match_dict_en(self, word):
-        if word in self.dictionary_en_to_cn:
-            return self.dictionary_en_to_cn[word]
-        else:
+        res = self.dictionary_en_to_cn.mdx_lookup(word, True)
+        if not res:
             return "Not Found"
+        else:
+            return res[0]
 
 
 
@@ -344,13 +339,22 @@ class MagicFinger:
                     break
         cv2.destroyAllWindows()
 
+    def _display_html(self, content):
+        if not content:
+            return
+        with open(self.PATH_HTML, 'w', encoding='utf-8') as f:
+            f.write(content)
+        webbrowser.open(self.PATH_HTML)
+
     def _OnMouseAction(self,event,x,y,flags,param):
         if event == cv2.EVENT_LBUTTONDOWN:
             logging.debug("x: {}\ty: {}".format(x, y))
             cv2.circle(self.original_img, (x, y), 2, (255, 0, 0), 2)
             self.x = x
             self.y = y
-            logging.info(self.translate())
+            res = self.translate()
+            self._display_html(res)
+            logging.info(res)
 
 if __name__ == "__main__":
     mf = MagicFinger()

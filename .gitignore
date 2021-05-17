@@ -1,4 +1,4 @@
-./__pycache__/
-./data/
+__pycache__
+data/
 *.jpg
 magic_finger.config

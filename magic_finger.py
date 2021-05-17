@@ -47,8 +47,11 @@ class MagicFinger:
     def _load_config(self):
         config = ConfigParser()
         config.read(self.PATH_CONFIG, encoding='utf-8')
-        self.access_token = config['token']['access_token']
-
+        try:
+            self.access_token = config['token']['access_token']
+        except KeyError as e:
+            logging.error("Please check your configuration file. Make sure you have one and name it magic_finger.config.")
+            logging.error(str(e))
         try:
             # 汉语成语词典路径
             self.PATH_CN_PHRASE = config['dictionary']['PATH_CN_PHRASE']

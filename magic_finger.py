@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import webbrowser
+from configparser import ConfigParser
 from mdict_query import IndexBuilder
 from magic_utils import *
 
@@ -22,12 +23,8 @@ class MagicFinger:
         # 默认查询语言
         self.lan = 'cn'
 
-        # 汉语成语词典路径
-        self.PATH_CN_PHRASE = './data/CHENGYUCIDIAN.mdx'
-        # 汉语新华字典路径
-        self.PATH_CN_XINHUA = './data/XINHUAZIDIAN.mdx'
-        # 英-汉字典路径
-        self.PATH_EN_TO_CN = './data/OALD7.mdx'
+        # 可修改配置文件路径
+        self.PATH_CONFIG = './magic_finger.config'
         # 指尖识别模型路径
         self.PATH_FINGERTIP_MODEL = ''
         # html显示路径
@@ -38,6 +35,7 @@ class MagicFinger:
         self.DRAWBOX = 2
         self.INTERACTIVE = 4
 
+        self._load_config()
         self._load_local_dict()
         self._load_model()
         self._init_OCR()
@@ -46,10 +44,37 @@ class MagicFinger:
         self.y = 0
         self.points = []
 
+    def _load_config(self):
+        config = ConfigParser()
+        config.read(self.PATH_CONFIG, encoding='utf-8')
+        self.access_token = config['token']['access_token']
+
+        try:
+            # 汉语成语词典路径
+            self.PATH_CN_PHRASE = config['dictionary']['PATH_CN_PHRASE']
+        except:
+            self.PATH_CN_PHRASE = ''
+
+        try:
+            # 汉语新华字典路径
+            self.PATH_CN_XINHUA = config['dictionary']['PATH_CN_XINHUA']
+        except:
+            self.PATH_CN_XINHUA = ''
+
+        try:
+            # 英-汉字典路径
+            self.PATH_EN_TO_CN = config['dictionary']['PATH_EN_TO_CN']
+        except:
+            self.PATH_EN_TO_CN = ''
+
+        logging.error(self.PATH_CN_XINHUA)
     def _load_local_dict(self):
-        self.dictionary_cn_XinHua = IndexBuilder(self.PATH_CN_XINHUA)
-        self.dictionary_cn_phrase = IndexBuilder(self.PATH_CN_PHRASE)
-        self.dictionary_en_to_cn = IndexBuilder(self.PATH_EN_TO_CN)
+        if self.PATH_CN_XINHUA:
+            self.dictionary_cn_XinHua = IndexBuilder(self.PATH_CN_XINHUA)
+        if self.PATH_CN_PHRASE:
+            self.dictionary_cn_phrase = IndexBuilder(self.PATH_CN_PHRASE)
+        if self.PATH_EN_TO_CN:
+            self.dictionary_en_to_cn = IndexBuilder(self.PATH_EN_TO_CN)
 
     def _load_model(self):
         # ToDo: 
@@ -72,10 +97,8 @@ class MagicFinger:
                 'paragraph':'true', 
                 'language_type': "CHN_ENG",
                 'recognize_granularity':'small'}
-        # access_token = '[调用鉴权接口获取的token]'
-        access_token = '24.71ccf2de9c786dfa14b52bbd0b28a141.2592000.1622108930.282335-24078056'
 
-        self.request_url = request_url + "?access_token=" + access_token
+        self.request_url = request_url + "?access_token=" + self.access_token
         self.headers = {'content-type': 'application/x-www-form-urlencoded'}
     
     def translate(self):
@@ -104,8 +127,6 @@ class MagicFinger:
             return
 
         # ToDo: get x, y from model
-
-
 
     def _locate_words(self):
         """

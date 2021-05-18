@@ -22,7 +22,7 @@ if (args.file):
     img_path = args.file
 
 
-mf = MagicFinger(precision=3, max_len_cn=1)
+mf = MagicFinger(precision=3, max_len_cn=1, scale=1.5)
 mf.set_image(img_path)
 
 mf.draw(mode=mf.DRAWLINE | mf.INTERACTIVE)

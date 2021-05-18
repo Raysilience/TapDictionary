@@ -70,7 +70,6 @@ class MagicFinger:
         except:
             self.PATH_EN_TO_CN = ''
 
-        logging.error(self.PATH_CN_XINHUA)
     def _load_local_dict(self):
         if self.PATH_CN_XINHUA:
             self.dictionary_cn_XinHua = IndexBuilder(self.PATH_CN_XINHUA)
@@ -99,6 +98,7 @@ class MagicFinger:
         self.params = {
                 'paragraph':'true', 
                 'language_type': "CHN_ENG",
+                'detect_direction':'true',
                 'recognize_granularity':'small'}
 
         self.request_url = request_url + "?access_token=" + self.access_token
@@ -337,7 +337,10 @@ class MagicFinger:
             if key > self.MAX_LEN_CHAR_CN:
                 continue
             for phrase in comb[key]:
-                ret = self.dictionary_cn_XinHua.mdx_lookup(phrase)
+                ret = self.dictionary_cn_phrase.mdx_lookup(phrase)
+                print(ret)
+                if not ret:
+                    ret = self.dictionary_cn_XinHua.mdx_lookup(phrase)
                 if ret:
                     return ret[0]
         return "<html><head></head><body><p>{}</p></body></html>".format("查无此词")

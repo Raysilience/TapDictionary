@@ -22,4 +22,4 @@
 ```shell
 python main.py -v INFO -f 1.jpg
 ```
-![image]()
+![image](https://github.com/ruizhang95/ocr/blob/main/demo.gif)

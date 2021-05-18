@@ -20,6 +20,6 @@
 ```
 ### demo 展示
 ```shell
-python main.py -v INFO -f 1.jpg
+python main.py -f 1.jpg
 ```
 ![image](https://github.com/ruizhang95/ocr/blob/main/demo.gif)

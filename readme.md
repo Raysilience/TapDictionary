@@ -3,7 +3,7 @@
 1. 根目录创建 `data/` 文件夹，并导入 `.mdd` 或者 `.mdx` 格式词库
 2. 配置 `template.config` 文件并修改文件命名为 `magic_finger.config`
    - access token需要在百度注册账号后获取
-   - 字典路径配置为 `./data/***.mdx'
+   - 字典路径配置为 ./data/***.mdx
 
 ### 开始使用 **magic_finger sdk**
   ```python

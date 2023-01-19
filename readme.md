@@ -22,4 +22,4 @@
 ```shell
 python main.py -f 1.jpg
 ```
-![image](https://github.com/ruizhang95/ocr/blob/main/demo.gif)
+![image](https://github.com/Raysilience/ocr/blob/main/demo.gif)
